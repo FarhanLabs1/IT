@@ -1,0 +1,106 @@
+-- ========================================================================
+-- PR1 | MySQL basic queries (manual page 7) | database: db1
+-- ========================================================================
+-- HOW TO USE:  Do the STEPS in order, one at a time.
+--   - Copy ONLY the lines of one step (the lines under the STEP heading, nothing from other steps).
+--   - Paste them at the mysql> prompt and press Enter, then move on to the next STEP.
+--   - 'Expected' shows what you should see. Steps marked [ERROR DEMO] are SUPPOSED to give an error.
+--   - Running the whole file at once also works:  sudo mysql --force < pr1_mysql_queries.sql
+
+-- ---------- STEP 1: [TERMINAL] Open terminal and log in to MySQL / MariaDB ----------
+-- sudo mysql
+-- Expected: Prompt changes to  MariaDB [(none)]>  or  mysql>
+
+-- ---------- STEP 2: 1) CREATE DATABASE ----------
+CREATE DATABASE IF NOT EXISTS db1;
+-- Expected: Query OK, 1 row affected
+
+-- ---------- STEP 3: 2) USE DATABASE ----------
+USE db1;
+-- Expected: Database changed
+
+-- ---------- STEP 4: 3) CREATE TABLE ----------
+DROP TABLE IF EXISTS customers;
+CREATE TABLE customers (
+    id INT,
+    name VARCHAR(50),
+    city VARCHAR(50),
+    PRIMARY KEY (id)
+);
+-- Expected: Query OK, 0 rows affected
+
+-- ---------- STEP 5: 4) ALTER TABLE - add a column ----------
+ALTER TABLE customers ADD age VARCHAR(50);
+-- Expected: Column 'age' added
+
+-- ---------- STEP 6: 5) INSERT - column list is needed because the table now has 4 columns ----------
+INSERT INTO customers (id, name, city) VALUES (101, 'rahul', 'delhi');
+-- Expected: Query OK, 1 row affected
+
+-- ---------- STEP 7: 6) UPDATE ----------
+UPDATE customers SET name = 'bob', city = 'london' WHERE id = 101;
+-- Expected: Rows matched: 1  Changed: 1
+
+-- ---------- STEP 8: 7) SELECT ----------
+SELECT * FROM customers;
+-- Expected: 101 | bob | london | NULL
+
+-- ---------- STEP 9: 8) DELETE ----------
+DELETE FROM customers WHERE id = 101;
+-- Expected: Query OK, 1 row affected
+
+-- ---------- STEP 10: Verify the DELETE ----------
+SELECT * FROM customers;
+-- Expected: Empty set
+
+-- ---------- STEP 11: Insert a row again (to show TRUNCATE) ----------
+INSERT INTO customers (id, name, city) VALUES (102, 'amit', 'pune');
+-- Expected: Query OK, 1 row affected
+
+-- ---------- STEP 12: 9) TRUNCATE TABLE - removes all records, keeps the table ----------
+TRUNCATE TABLE customers;
+SELECT * FROM customers;
+-- Expected: Empty set (table structure still exists)
+
+-- ---------- STEP 13: 10) DROP TABLE ----------
+DROP TABLE customers;
+-- Expected: Query OK - table deleted
+
+-- ---------- STEP 14: Verify the table is gone ----------
+SHOW TABLES;
+-- Expected: Empty set
+
+-- ---------- STEP 15: Transactional properties - storage engine that supports transactions (InnoDB) ----------
+SHOW ENGINES;
+-- Expected: InnoDB row shows Support = DEFAULT and Transactions = YES
+
+-- ---------- STEP 16: Create a table for the transaction demo ----------
+CREATE TABLE accounts (
+    acc_no INT PRIMARY KEY,
+    holder VARCHAR(30),
+    balance INT
+) ENGINE = InnoDB;
+INSERT INTO accounts VALUES (1, 'Rahul', 1000), (2, 'Amit', 500);
+SELECT * FROM accounts;
+-- Expected: Rahul 1000, Amit 500
+
+-- ---------- STEP 17: ROLLBACK - undo a transfer (Atomicity) ----------
+START TRANSACTION;
+UPDATE accounts SET balance = balance - 200 WHERE acc_no = 1;
+UPDATE accounts SET balance = balance + 200 WHERE acc_no = 2;
+SELECT * FROM accounts;
+ROLLBACK;
+SELECT * FROM accounts;
+-- Expected: Inside transaction: 800 / 700.  After ROLLBACK: back to 1000 / 500
+
+-- ---------- STEP 18: COMMIT - save a transfer (Durability) ----------
+START TRANSACTION;
+UPDATE accounts SET balance = balance - 200 WHERE acc_no = 1;
+UPDATE accounts SET balance = balance + 200 WHERE acc_no = 2;
+COMMIT;
+SELECT * FROM accounts;
+-- Expected: Rahul 800, Amit 700 (permanent)
+
+-- ---------- STEP 19: Clean up - drop the practice database ----------
+DROP DATABASE db1;
+-- Expected: Query OK

@@ -1,0 +1,151 @@
+-- ========================================================================
+-- PR9 | Implicit, explicit and parameterised cursors | database: farhan
+-- ========================================================================
+-- HOW TO USE:  Do the STEPS in order, one at a time.
+--   - Copy ONLY the lines of one step (the lines under the STEP heading, nothing from other steps).
+--   - Paste them at the mysql> prompt and press Enter, then move on to the next STEP.
+--   - 'Expected' shows what you should see. Steps marked [ERROR DEMO] are SUPPOSED to give an error.
+--   - Running the whole file at once also works:  sudo mysql --force < pr9_cursors_mysql.sql
+-- NOTES:
+--   * Cursors (Experiment 9) are in the lab manual but are not in the SPPU syllabus list. They are included because the manual has them.
+--   * MySQL cursors work only inside stored programs and have no 'cursor FOR loop'; the OPEN / FETCH / CLOSE loop is used instead.
+--   * MySQL cursors cannot take their own parameters; the cursor reads the procedure's parameter (p_city) instead.
+
+-- ---------- STEP 1: [TERMINAL] Open terminal and log in to MySQL / MariaDB ----------
+-- sudo mysql
+-- Expected: Prompt changes to  MariaDB [(none)]>  or  mysql>
+
+-- ---------- STEP 2: Create and select the database ----------
+CREATE DATABASE IF NOT EXISTS farhan;
+USE farhan;
+-- Expected: Query OK, 1 row affected   |   Database changed
+
+-- ---------- STEP 3: Create the CUSTOMERS table (ID is the PRIMARY KEY) ----------
+DROP TABLE IF EXISTS ORDERS;
+DROP TABLE IF EXISTS CUSTOMERS;
+CREATE TABLE CUSTOMERS (
+    ID INT NOT NULL,
+    NAME VARCHAR(20) NOT NULL,
+    AGE INT NOT NULL,
+    ADDRESS CHAR(25),
+    SALARY DECIMAL(18, 2),
+    PRIMARY KEY (ID)
+);
+-- Expected: Query OK, 0 rows affected
+
+-- ---------- STEP 4: Insert 6 customers (copy the whole statement) ----------
+INSERT INTO CUSTOMERS (ID, NAME, AGE, ADDRESS, SALARY) VALUES
+    (1, 'Ramesh', 32, 'Ahmedabad', 2000.00),
+    (2, 'Khilan', 25, 'Delhi', 1500.00),
+    (3, 'kaushik', 23, 'Kota', 2000.00),
+    (4, 'Chaitali', 25, 'Mumbai', 6500.00),
+    (5, 'Hardik', 27, 'Bhopal', 8500.00),
+    (6, 'Komal', 22, 'MP', 4500.00);
+-- Expected: Query OK, 6 rows affected
+
+-- ---------- STEP 5: View all rows ----------
+SELECT * FROM CUSTOMERS;
+-- Expected: All customers (ID, NAME, AGE, ADDRESS, SALARY)
+
+-- ---------- STEP 6: IMPLICIT cursor - create the procedure (ROW_COUNT() works like SQL%ROWCOUNT) ----------
+DROP PROCEDURE IF EXISTS implicit_cursor_demo;
+DELIMITER //
+CREATE PROCEDURE implicit_cursor_demo()
+BEGIN
+    DECLARE total_rows INT;
+    UPDATE CUSTOMERS SET SALARY = SALARY + 500;
+    SET total_rows = ROW_COUNT();
+    IF total_rows = 0 THEN
+        SELECT 'no customers selected' AS result;
+    ELSE
+        SELECT CONCAT(total_rows, ' customers selected') AS result;
+    END IF;
+END //
+DELIMITER ;
+-- Expected: Query OK - procedure created
+
+-- ---------- STEP 7: IMPLICIT cursor - run it (salary of each customer + 500) ----------
+CALL implicit_cursor_demo();
+-- Expected: 6 customers selected
+
+-- ---------- STEP 8: Check the table after the update ----------
+SELECT * FROM CUSTOMERS;
+-- Expected: Salaries are now 2500, 2000, 2500, 7000, 9000, 5000
+
+-- ---------- STEP 9: IMPLICIT cursor - the NOT FOUND case (no row matches) ----------
+UPDATE CUSTOMERS SET SALARY = SALARY + 500 WHERE ID = 99;
+SELECT ROW_COUNT() AS rows_affected;
+-- Expected: 0  (like SQL%NOTFOUND = TRUE)
+
+-- ---------- STEP 10: EXPLICIT cursor - create the procedure (DECLARE, OPEN, FETCH, CLOSE) ----------
+DROP PROCEDURE IF EXISTS explicit_cursor_demo;
+DELIMITER //
+CREATE PROCEDURE explicit_cursor_demo()
+BEGIN
+    DECLARE done INT DEFAULT 0;
+    DECLARE c_id INT;
+    DECLARE c_name VARCHAR(20);
+    DECLARE c_addr CHAR(25);
+    DECLARE c_customers CURSOR FOR
+        SELECT ID, NAME, ADDRESS FROM CUSTOMERS;
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
+
+    DROP TEMPORARY TABLE IF EXISTS cursor_output;
+    CREATE TEMPORARY TABLE cursor_output (line VARCHAR(100));
+
+    OPEN c_customers;
+    read_loop: LOOP
+        FETCH c_customers INTO c_id, c_name, c_addr;
+        IF done = 1 THEN
+            LEAVE read_loop;
+        END IF;
+        INSERT INTO cursor_output VALUES (CONCAT(c_id, ' ', c_name, ' ', c_addr));
+    END LOOP;
+    CLOSE c_customers;
+
+    SELECT * FROM cursor_output;
+END //
+DELIMITER ;
+-- Expected: Query OK - procedure created
+
+-- ---------- STEP 11: EXPLICIT cursor - run it ----------
+CALL explicit_cursor_demo();
+-- Expected: 6 lines: 1 Ramesh Ahmedabad ... 6 Komal MP
+
+-- ---------- STEP 12: PARAMETERISED cursor - create the procedure (the cursor uses the city parameter) ----------
+DROP PROCEDURE IF EXISTS city_cursor_demo;
+DELIMITER //
+CREATE PROCEDURE city_cursor_demo(IN p_city CHAR(25))
+BEGIN
+    DECLARE done INT DEFAULT 0;
+    DECLARE c_id INT;
+    DECLARE c_name VARCHAR(20);
+    DECLARE c_city CURSOR FOR
+        SELECT ID, NAME FROM CUSTOMERS WHERE ADDRESS = p_city;
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
+
+    DROP TEMPORARY TABLE IF EXISTS cursor_output;
+    CREATE TEMPORARY TABLE cursor_output (line VARCHAR(100));
+
+    OPEN c_city;
+    read_loop: LOOP
+        FETCH c_city INTO c_id, c_name;
+        IF done = 1 THEN
+            LEAVE read_loop;
+        END IF;
+        INSERT INTO cursor_output VALUES (CONCAT(c_id, ' ', c_name, ' lives in ', p_city));
+    END LOOP;
+    CLOSE c_city;
+
+    SELECT * FROM cursor_output;
+END //
+DELIMITER ;
+-- Expected: Query OK - procedure created
+
+-- ---------- STEP 13: PARAMETERISED cursor - run it for Delhi ----------
+CALL city_cursor_demo('Delhi');
+-- Expected: 2 Khilan lives in Delhi
+
+-- ---------- STEP 14: PARAMETERISED cursor - run it for Mumbai ----------
+CALL city_cursor_demo('Mumbai');
+-- Expected: 4 Chaitali lives in Mumbai
