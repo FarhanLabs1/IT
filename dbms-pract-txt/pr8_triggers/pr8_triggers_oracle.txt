@@ -1,0 +1,129 @@
+========================================================================
+PR8 - Database triggers
+Oracle PL/SQL - row-level and statement-level triggers (as in the manual)
+File: pr8_triggers_oracle   |   11 steps
+========================================================================
+
+HOW TO USE: do the steps in order. Copy ONLY the code between the two
+dashed lines of one step, paste it at the SQL> prompt, press Enter,
+then go to the next step. Steps marked [ERROR DEMO] are supposed to give an error.
+
+NOTES:
+  * These are the Oracle PL/SQL programs exactly as written in the lab manual (typos like 'ISBEGIN' fixed).
+  * They could NOT be run in my test environment (it has no Oracle database), so unlike the MySQL files they are not tested. Run them once on Live SQL / SQL*Plus before the exam.
+  * Each PL/SQL block ends with a line containing only /   (it tells SQL*Plus to run the block). If Live SQL complains about the /, delete that line.
+  * Row-level = FOR EACH ROW (runs once per affected row). Statement-level = no FOR EACH ROW (runs once per SQL statement).
+
+========================================================================
+STEP 1: [TERMINAL OR BROWSER] Open Oracle Live SQL (the manual uses it) or SQL*Plus / SQL Developer
+------------------------------------------------------------------------
+Browser:  https://livesql.oracle.com  ->  Sign in  ->  SQL Worksheet
+or start SQL*Plus / SQL Developer on the lab PC
+------------------------------------------------------------------------
+Expected: The SQL worksheet opens (prompt SQL>)
+
+========================================================================
+STEP 2: Turn on output  (needed in SQL*Plus / SQL Developer; Live SQL shows output by itself)
+------------------------------------------------------------------------
+SET SERVEROUTPUT ON;
+------------------------------------------------------------------------
+Expected: No output
+
+========================================================================
+STEP 3: Remove an old CUSTOMERS table (ignore the error the first time)
+------------------------------------------------------------------------
+DROP TABLE customers;
+------------------------------------------------------------------------
+Expected: Table dropped   (ORA-00942 'table does not exist' is fine)
+
+========================================================================
+STEP 4: Create the CUSTOMERS table
+------------------------------------------------------------------------
+CREATE TABLE customers (
+    id NUMBER NOT NULL,
+    name VARCHAR2(20) NOT NULL,
+    age NUMBER NOT NULL,
+    address VARCHAR2(25),
+    salary NUMBER(18, 2),
+    PRIMARY KEY (id)
+);
+------------------------------------------------------------------------
+Expected: Table created.
+
+========================================================================
+STEP 5: Insert 6 customers (copy all lines together)
+------------------------------------------------------------------------
+INSERT INTO customers VALUES (1, 'Ramesh', 32, 'Ahmedabad', 2000.00);
+INSERT INTO customers VALUES (2, 'Khilan', 25, 'Delhi', 1500.00);
+INSERT INTO customers VALUES (3, 'kaushik', 23, 'Kota', 2000.00);
+INSERT INTO customers VALUES (4, 'Chaitali', 25, 'Mumbai', 6500.00);
+INSERT INTO customers VALUES (5, 'Hardik', 27, 'Bhopal', 8500.00);
+INSERT INTO customers VALUES (6, 'Komal', 22, 'MP', 4500.00);
+COMMIT;
+------------------------------------------------------------------------
+Expected: 1 row(s) inserted (6 times)   |   Commit complete.
+
+========================================================================
+STEP 6: View all rows
+------------------------------------------------------------------------
+SELECT * FROM customers;
+------------------------------------------------------------------------
+Expected: 6 customers (Ramesh ... Komal)
+
+========================================================================
+STEP 7: Row-level trigger display_salary_changes (the manual's example)
+------------------------------------------------------------------------
+CREATE OR REPLACE TRIGGER display_salary_changes
+BEFORE DELETE OR INSERT OR UPDATE ON customers
+FOR EACH ROW
+WHEN (NEW.ID > 0)
+DECLARE
+    sal_diff NUMBER;
+BEGIN
+    sal_diff := :NEW.salary - :OLD.salary;
+    dbms_output.put_line('Old salary: ' || :OLD.salary);
+    dbms_output.put_line('New salary: ' || :NEW.salary);
+    dbms_output.put_line('Salary difference: ' || sal_diff);
+END;
+/
+------------------------------------------------------------------------
+Expected: Trigger created.
+
+========================================================================
+STEP 8: Fire the trigger - update customer 2
+------------------------------------------------------------------------
+UPDATE customers
+SET salary = salary + 500
+WHERE id = 2;
+------------------------------------------------------------------------
+Expected: Old salary: 1500
+New salary: 2000
+Salary difference: 500
+
+========================================================================
+STEP 9: Statement-level trigger (no FOR EACH ROW - fires once per statement)
+------------------------------------------------------------------------
+CREATE OR REPLACE TRIGGER stmt_level_trg
+AFTER UPDATE ON customers
+BEGIN
+    dbms_output.put_line('Statement-level trigger fired: customers table was updated');
+END;
+/
+------------------------------------------------------------------------
+Expected: Trigger created.
+
+========================================================================
+STEP 10: Fire both triggers - update ALL customers
+------------------------------------------------------------------------
+UPDATE customers SET salary = salary + 100;
+------------------------------------------------------------------------
+Expected: The row-level trigger prints 6 times (once per row); the statement-level trigger prints only once
+
+========================================================================
+STEP 11: DROP the triggers
+------------------------------------------------------------------------
+DROP TRIGGER display_salary_changes;
+DROP TRIGGER stmt_level_trg;
+------------------------------------------------------------------------
+Expected: Trigger dropped.
+

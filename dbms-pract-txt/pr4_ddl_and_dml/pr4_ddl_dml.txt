@@ -1,0 +1,198 @@
+========================================================================
+PR4 - Database using DDL and DML statements
+DDL and DML on the CUSTOMERS table
+File: pr4_ddl_dml   |   20 steps
+========================================================================
+
+HOW TO USE: do the steps in order. Copy ONLY the code between the two
+dashed lines of one step, paste it at the mysql> prompt, press Enter,
+then go to the next step. Steps marked [ERROR DEMO] are supposed to give an error.
+
+NOTES:
+  * The manual's order is DELETE, TRUNCATE, DROP, RENAME, COMMIT, GRANT, REVOKE. Here TRUNCATE and DROP come last so that the table still has data for the other examples.
+  * The manual's GRANT/REVOKE example uses PostgreSQL syntax (testdb=#, CREATE ROLE). This file uses the MySQL syntax.
+
+========================================================================
+STEP 1: [TERMINAL] Open terminal and log in to MySQL / MariaDB
+------------------------------------------------------------------------
+sudo mysql
+------------------------------------------------------------------------
+Expected: Prompt changes to  MariaDB [(none)]>  or  mysql>
+
+========================================================================
+STEP 2: Create and select the database
+------------------------------------------------------------------------
+CREATE DATABASE IF NOT EXISTS farhan;
+USE farhan;
+------------------------------------------------------------------------
+Expected: Query OK, 1 row affected   |   Database changed
+
+========================================================================
+STEP 3: i) DDL - CREATE TABLE
+------------------------------------------------------------------------
+DROP TABLE IF EXISTS ORDERS;
+DROP TABLE IF EXISTS CUSTOMERS;
+CREATE TABLE CUSTOMERS (
+    ID INT NOT NULL,
+    NAME VARCHAR(20) NOT NULL,
+    AGE INT NOT NULL,
+    ADDRESS CHAR(25),
+    SALARY DECIMAL(18, 2),
+    PRIMARY KEY (ID)
+);
+------------------------------------------------------------------------
+Expected: Query OK, 0 rows affected
+
+========================================================================
+STEP 4: Verify the table structure
+------------------------------------------------------------------------
+DESC CUSTOMERS;
+------------------------------------------------------------------------
+Expected: 5 rows: ID (PRI), NAME, AGE, ADDRESS, SALARY
+
+========================================================================
+STEP 5: ii) DML - INSERT INTO (6 records)
+------------------------------------------------------------------------
+INSERT INTO CUSTOMERS (ID, NAME, AGE, ADDRESS, SALARY) VALUES
+    (1, 'Ramesh', 32, 'Ahmedabad', 2000.00),
+    (2, 'Khilan', 25, 'Delhi', 1500.00),
+    (3, 'kaushik', 23, 'Kota', 2000.00),
+    (4, 'Chaitali', 25, 'Mumbai', 6500.00),
+    (5, 'Hardik', 27, 'Bhopal', 8500.00),
+    (6, 'Komal', 22, 'MP', 4500.00);
+------------------------------------------------------------------------
+Expected: Query OK, 6 rows affected
+
+========================================================================
+STEP 6: View all rows
+------------------------------------------------------------------------
+SELECT * FROM CUSTOMERS;
+------------------------------------------------------------------------
+Expected: All customers (ID, NAME, AGE, ADDRESS, SALARY)
+
+========================================================================
+STEP 7: iii) DDL - ALTER TABLE: DROP the SALARY column
+------------------------------------------------------------------------
+ALTER TABLE CUSTOMERS DROP SALARY;
+------------------------------------------------------------------------
+Expected: Column SALARY and its values are deleted
+
+========================================================================
+STEP 8: iii) DDL - ALTER TABLE: ADD a RESULT column
+------------------------------------------------------------------------
+ALTER TABLE CUSTOMERS ADD RESULT CHAR(10);
+------------------------------------------------------------------------
+Expected: Column RESULT added
+
+========================================================================
+STEP 9: Verify the ALTER
+------------------------------------------------------------------------
+DESC CUSTOMERS;
+------------------------------------------------------------------------
+Expected: SALARY is gone, RESULT is added
+
+========================================================================
+STEP 10: Restore the table with 7 customers (so the next examples match the manual)
+------------------------------------------------------------------------
+DROP TABLE CUSTOMERS;
+CREATE TABLE CUSTOMERS (
+    ID INT NOT NULL,
+    NAME VARCHAR(20) NOT NULL,
+    AGE INT NOT NULL,
+    ADDRESS CHAR(25),
+    SALARY DECIMAL(18, 2),
+    PRIMARY KEY (ID)
+);
+INSERT INTO CUSTOMERS (ID, NAME, AGE, ADDRESS, SALARY) VALUES
+    (1, 'Ramesh', 32, 'Ahmedabad', 2000.00),
+    (2, 'Khilan', 25, 'Delhi', 1500.00),
+    (3, 'kaushik', 23, 'Kota', 2000.00),
+    (4, 'Chaitali', 25, 'Mumbai', 6500.00),
+    (5, 'Hardik', 27, 'Bhopal', 8500.00),
+    (6, 'Komal', 22, 'MP', 4500.00),
+    (7, 'Muffy', 24, 'Indore', 10000.00);
+SELECT * FROM CUSTOMERS;
+------------------------------------------------------------------------
+Expected: 7 rows (Ramesh ... Muffy) with SALARY back
+
+========================================================================
+STEP 11: iv) DML - DELETE: remove customer with ID 6
+------------------------------------------------------------------------
+DELETE FROM CUSTOMERS WHERE ID = 6;
+SELECT * FROM CUSTOMERS;
+------------------------------------------------------------------------
+Expected: Komal is gone, 6 rows left
+
+========================================================================
+STEP 12: viii) TCL - COMMIT: delete age 25 inside a transaction, then COMMIT
+------------------------------------------------------------------------
+START TRANSACTION;
+DELETE FROM CUSTOMERS WHERE AGE = 25;
+COMMIT;
+SELECT * FROM CUSTOMERS;
+------------------------------------------------------------------------
+Expected: Khilan and Chaitali deleted. Left: Ramesh, kaushik, Hardik, Muffy
+
+========================================================================
+STEP 13: vii) RENAME TABLE
+------------------------------------------------------------------------
+ALTER TABLE CUSTOMERS RENAME TO CUSTOMERS_NEW;
+SHOW TABLES;
+------------------------------------------------------------------------
+Expected: CUSTOMERS_NEW is listed
+
+========================================================================
+STEP 14: vii) RENAME TABLE - rename it back
+------------------------------------------------------------------------
+ALTER TABLE CUSTOMERS_NEW RENAME TO CUSTOMERS;
+SHOW TABLES;
+------------------------------------------------------------------------
+Expected: CUSTOMERS is listed again
+
+========================================================================
+STEP 15: ix) DCL - GRANT: create a user and give all privileges on the table
+------------------------------------------------------------------------
+DROP USER IF EXISTS 'manisha'@'localhost';
+CREATE USER 'manisha'@'localhost' IDENTIFIED BY 'password';
+GRANT ALL ON farhan.CUSTOMERS TO 'manisha'@'localhost';
+SHOW GRANTS FOR 'manisha'@'localhost';
+------------------------------------------------------------------------
+Expected: Grants list shows ALL PRIVILEGES ON farhan.CUSTOMERS
+
+========================================================================
+STEP 16: x) DCL - REVOKE: take the privileges back
+------------------------------------------------------------------------
+REVOKE ALL ON farhan.CUSTOMERS FROM 'manisha'@'localhost';
+SHOW GRANTS FOR 'manisha'@'localhost';
+------------------------------------------------------------------------
+Expected: Only USAGE is left (no table privileges)
+
+========================================================================
+STEP 17: Delete the user
+------------------------------------------------------------------------
+DROP USER 'manisha'@'localhost';
+------------------------------------------------------------------------
+Expected: Query OK
+
+========================================================================
+STEP 18: v) DDL - TRUNCATE TABLE: delete all rows, keep the structure
+------------------------------------------------------------------------
+TRUNCATE TABLE CUSTOMERS;
+SELECT * FROM CUSTOMERS;
+------------------------------------------------------------------------
+Expected: Empty set
+
+========================================================================
+STEP 19: vi) DDL - DROP TABLE: table is physically deleted
+------------------------------------------------------------------------
+DROP TABLE CUSTOMERS;
+------------------------------------------------------------------------
+Expected: Query OK, 0 rows affected
+
+========================================================================
+STEP 20: [ERROR DEMO] Verify the table is gone
+------------------------------------------------------------------------
+DESC CUSTOMERS;
+------------------------------------------------------------------------
+Expected: ERROR 1146: Table 'farhan.CUSTOMERS' doesn't exist   (expected)
+

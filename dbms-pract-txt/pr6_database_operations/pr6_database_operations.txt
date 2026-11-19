@@ -1,0 +1,789 @@
+========================================================================
+PR6 - Database operations (a to j)
+Operations a to j + date and time (all parts in one file: 6a ALTER, 6b DROP, 6c INDEX, 6d OPERATORS, 6e LIKE, 6f GROUP BY, 6g NESTED, 6h SET OPS, 6i VIEWS, 6j SORTING, 6k DATE/TIME)
+File: pr6_database_operations   |   94 steps
+========================================================================
+
+HOW TO USE: do the steps in order. Copy ONLY the code between the two
+dashed lines of one step, paste it at the mysql> prompt, press Enter,
+then go to the next step. Steps marked [ERROR DEMO] are supposed to give an error.
+
+NOTES:
+  * 6d: MySQL has no !< and !> operators (they are SQL Server only). Use >= and <= instead.
+  * 6d: The manual's arithmetic example  WHERE SALARY = SALARY + 1000  is never true. Here the arithmetic is shown in the SELECT list instead.
+  * 6e: % matches any number of characters, _ matches exactly one character.
+  * 6h: MySQL does not have MINUS; the same operator is called EXCEPT.
+  * 6h: INTERSECT and EXCEPT need MySQL 8.0.31+ or MariaDB 10.3+. On older versions use the two alternative steps at the end.
+  * 6h: The manual uses hostel1 and hostel2 but never creates them; they are created here.
+
+========================================================================
+STEP 1: [TERMINAL] Open terminal and log in to MySQL / MariaDB
+------------------------------------------------------------------------
+sudo mysql
+------------------------------------------------------------------------
+Expected: Prompt changes to  MariaDB [(none)]>  or  mysql>
+
+========================================================================
+STEP 2: Create and select the database
+------------------------------------------------------------------------
+CREATE DATABASE IF NOT EXISTS farhan;
+USE farhan;
+------------------------------------------------------------------------
+Expected: Query OK, 1 row affected   |   Database changed
+
+========================================================================
+STEP 3: Create the CUSTOMERS table (ID is the PRIMARY KEY)
+------------------------------------------------------------------------
+DROP TABLE IF EXISTS ORDERS;
+DROP TABLE IF EXISTS CUSTOMERS;
+CREATE TABLE CUSTOMERS (
+    ID INT NOT NULL,
+    NAME VARCHAR(20) NOT NULL,
+    AGE INT NOT NULL,
+    ADDRESS CHAR(25),
+    SALARY DECIMAL(18, 2),
+    PRIMARY KEY (ID)
+);
+------------------------------------------------------------------------
+Expected: Query OK, 0 rows affected
+
+========================================================================
+STEP 4: Insert 7 customers (copy the whole statement)
+------------------------------------------------------------------------
+INSERT INTO CUSTOMERS (ID, NAME, AGE, ADDRESS, SALARY) VALUES
+    (1, 'Ramesh', 32, 'Ahmedabad', 2000.00),
+    (2, 'Khilan', 25, 'Delhi', 1500.00),
+    (3, 'kaushik', 23, 'Kota', 2000.00),
+    (4, 'Chaitali', 25, 'Mumbai', 6500.00),
+    (5, 'Hardik', 27, 'Bhopal', 8500.00),
+    (6, 'Komal', 22, 'MP', 4500.00),
+    (7, 'Muffy', 24, 'Indore', 10000.00);
+------------------------------------------------------------------------
+Expected: Query OK, 7 rows affected
+
+========================================================================
+STEP 5: View all rows
+------------------------------------------------------------------------
+SELECT * FROM CUSTOMERS;
+------------------------------------------------------------------------
+Expected: All customers (ID, NAME, AGE, ADDRESS, SALARY)
+
+========================================================================
+STEP 6: 6a) ADD a column
+------------------------------------------------------------------------
+ALTER TABLE CUSTOMERS ADD EMAIL VARCHAR(100);
+------------------------------------------------------------------------
+Expected: Column EMAIL added
+
+========================================================================
+STEP 7: 6a) MODIFY a column (change the size)
+------------------------------------------------------------------------
+ALTER TABLE CUSTOMERS MODIFY NAME VARCHAR(50);
+------------------------------------------------------------------------
+Expected: NAME is now VARCHAR(50)
+
+========================================================================
+STEP 8: 6a) RENAME a column (ADDRESS to CITY)
+------------------------------------------------------------------------
+ALTER TABLE CUSTOMERS CHANGE ADDRESS CITY CHAR(25);
+------------------------------------------------------------------------
+Expected: Column renamed to CITY
+
+========================================================================
+STEP 9: 6a) Verify the structure
+------------------------------------------------------------------------
+DESC CUSTOMERS;
+------------------------------------------------------------------------
+Expected: EMAIL added, NAME varchar(50), ADDRESS is now CITY
+
+========================================================================
+STEP 10: 6a) DROP a column
+------------------------------------------------------------------------
+ALTER TABLE CUSTOMERS DROP COLUMN EMAIL;
+------------------------------------------------------------------------
+Expected: Column EMAIL removed
+
+========================================================================
+STEP 11: 6a) RENAME the table
+------------------------------------------------------------------------
+ALTER TABLE CUSTOMERS RENAME TO CUSTOMERS_NEW;
+SHOW TABLES;
+------------------------------------------------------------------------
+Expected: CUSTOMERS_NEW is listed
+
+========================================================================
+STEP 12: 6a) RENAME it back
+------------------------------------------------------------------------
+ALTER TABLE CUSTOMERS_NEW RENAME TO CUSTOMERS;
+SHOW TABLES;
+------------------------------------------------------------------------
+Expected: CUSTOMERS is listed again
+
+========================================================================
+STEP 13: 6a) Undo the column changes so the later parts still work
+------------------------------------------------------------------------
+ALTER TABLE CUSTOMERS CHANGE CITY ADDRESS CHAR(25);
+ALTER TABLE CUSTOMERS MODIFY NAME VARCHAR(20) NOT NULL;
+------------------------------------------------------------------------
+Expected: Columns are back to ADDRESS and NAME VARCHAR(20)
+
+========================================================================
+STEP 14: 6b) Create a backup copy of the table
+------------------------------------------------------------------------
+DROP TABLE IF EXISTS CUSTOMERS_BACKUP;
+CREATE TABLE CUSTOMERS_BACKUP AS SELECT * FROM CUSTOMERS;
+SHOW TABLES;
+------------------------------------------------------------------------
+Expected: CUSTOMERS and CUSTOMERS_BACKUP are listed
+
+========================================================================
+STEP 15: 6b) DROP TABLE
+------------------------------------------------------------------------
+DROP TABLE CUSTOMERS_BACKUP;
+------------------------------------------------------------------------
+Expected: Query OK, 0 rows affected
+
+========================================================================
+STEP 16: 6b) Verify the table is deleted
+------------------------------------------------------------------------
+SHOW TABLES;
+------------------------------------------------------------------------
+Expected: Only CUSTOMERS is listed
+
+========================================================================
+STEP 17: 6b) DROP TABLE IF EXISTS - no error even if the table is missing
+------------------------------------------------------------------------
+DROP TABLE IF EXISTS CUSTOMERS_BACKUP;
+------------------------------------------------------------------------
+Expected: Query OK, 0 rows affected, 1 warning
+
+========================================================================
+STEP 18: 6b) [ERROR DEMO] DROP TABLE on a table that does not exist
+------------------------------------------------------------------------
+DROP TABLE CUSTOMERS_BACKUP;
+------------------------------------------------------------------------
+Expected: ERROR 1051: Unknown table 'farhan.CUSTOMERS_BACKUP'   (expected)
+
+========================================================================
+STEP 19: 6c) Show existing indexes (the PRIMARY KEY index already exists)
+------------------------------------------------------------------------
+SHOW INDEX FROM CUSTOMERS;
+------------------------------------------------------------------------
+Expected: One row: Key_name = PRIMARY on ID
+
+========================================================================
+STEP 20: 6c) CREATE INDEX - simple index
+------------------------------------------------------------------------
+CREATE INDEX idx_address ON CUSTOMERS (ADDRESS);
+------------------------------------------------------------------------
+Expected: Query OK
+
+========================================================================
+STEP 21: 6c) CREATE UNIQUE INDEX - no duplicate names allowed
+------------------------------------------------------------------------
+CREATE UNIQUE INDEX idx_unique_name ON CUSTOMERS (NAME);
+------------------------------------------------------------------------
+Expected: Query OK
+
+========================================================================
+STEP 22: 6c) CREATE INDEX - composite index on two columns
+------------------------------------------------------------------------
+CREATE INDEX idx_age_salary ON CUSTOMERS (AGE, SALARY);
+------------------------------------------------------------------------
+Expected: Query OK
+
+========================================================================
+STEP 23: 6c) Show all indexes
+------------------------------------------------------------------------
+SHOW INDEX FROM CUSTOMERS;
+------------------------------------------------------------------------
+Expected: PRIMARY, idx_address, idx_unique_name, idx_age_salary
+
+========================================================================
+STEP 24: 6c) EXPLAIN - check that a query uses the index
+------------------------------------------------------------------------
+EXPLAIN SELECT * FROM CUSTOMERS WHERE NAME = 'Hardik';
+------------------------------------------------------------------------
+Expected: key column shows idx_unique_name
+
+========================================================================
+STEP 25: 6c) DROP INDEX
+------------------------------------------------------------------------
+DROP INDEX idx_address ON CUSTOMERS;
+DROP INDEX idx_unique_name ON CUSTOMERS;
+DROP INDEX idx_age_salary ON CUSTOMERS;
+------------------------------------------------------------------------
+Expected: Query OK
+
+========================================================================
+STEP 26: 6c) Verify - only the PRIMARY index is left
+------------------------------------------------------------------------
+SHOW INDEX FROM CUSTOMERS;
+------------------------------------------------------------------------
+Expected: One row: PRIMARY
+
+========================================================================
+STEP 27: 6d) Arithmetic operators  +  -  *  /  %
+------------------------------------------------------------------------
+SELECT ID, NAME, SALARY,
+       SALARY + 1000 AS plus_1000,
+       SALARY - 500  AS minus_500,
+       SALARY * 2    AS double_salary,
+       SALARY / 2    AS half_salary,
+       SALARY % 1000 AS remainder
+FROM CUSTOMERS;
+------------------------------------------------------------------------
+Expected: Calculated columns for all 7 customers
+
+========================================================================
+STEP 28: 6d) Comparison - equal to (=)
+------------------------------------------------------------------------
+SELECT * FROM CUSTOMERS WHERE ADDRESS = 'Delhi';
+------------------------------------------------------------------------
+Expected: Khilan
+
+========================================================================
+STEP 29: 6d) Comparison - not equal to (!=  or  <>)
+------------------------------------------------------------------------
+SELECT * FROM CUSTOMERS WHERE AGE <> 25;
+------------------------------------------------------------------------
+Expected: All except Khilan and Chaitali (5 rows)
+
+========================================================================
+STEP 30: 6d) Comparison - greater than (>)
+------------------------------------------------------------------------
+SELECT * FROM CUSTOMERS WHERE SALARY > 6000;
+------------------------------------------------------------------------
+Expected: Chaitali, Hardik, Muffy
+
+========================================================================
+STEP 31: 6d) Comparison - less than (<)
+------------------------------------------------------------------------
+SELECT * FROM CUSTOMERS WHERE AGE < 25;
+------------------------------------------------------------------------
+Expected: kaushik, Komal, Muffy
+
+========================================================================
+STEP 32: 6d) Comparison - greater than or equal (>=)
+------------------------------------------------------------------------
+SELECT * FROM CUSTOMERS WHERE SALARY >= 6500;
+------------------------------------------------------------------------
+Expected: Chaitali, Hardik, Muffy
+
+========================================================================
+STEP 33: 6d) Comparison - less than or equal (<=)
+------------------------------------------------------------------------
+SELECT * FROM CUSTOMERS WHERE SALARY <= 2000;
+------------------------------------------------------------------------
+Expected: Ramesh, Khilan, kaushik
+
+========================================================================
+STEP 34: 6d) Logical - BETWEEN
+------------------------------------------------------------------------
+SELECT * FROM CUSTOMERS WHERE SALARY BETWEEN 2000 AND 6500;
+------------------------------------------------------------------------
+Expected: Ramesh, kaushik, Chaitali, Komal
+
+========================================================================
+STEP 35: 6d) Logical - IN
+------------------------------------------------------------------------
+SELECT * FROM CUSTOMERS WHERE ADDRESS IN ('Delhi', 'Kota', 'MP');
+------------------------------------------------------------------------
+Expected: Khilan, kaushik, Komal
+
+========================================================================
+STEP 36: 6d) Logical - NOT
+------------------------------------------------------------------------
+SELECT * FROM CUSTOMERS WHERE NOT ADDRESS = 'Delhi';
+------------------------------------------------------------------------
+Expected: All except Khilan (6 rows)
+
+========================================================================
+STEP 37: 6d) Logical - IS NULL
+------------------------------------------------------------------------
+SELECT * FROM CUSTOMERS WHERE SALARY IS NULL;
+------------------------------------------------------------------------
+Expected: Empty set (no NULL salaries)
+
+========================================================================
+STEP 38: 6d) Logical - EXISTS
+------------------------------------------------------------------------
+SELECT NAME FROM CUSTOMERS
+WHERE EXISTS (SELECT 1 FROM CUSTOMERS WHERE SALARY > 9000);
+------------------------------------------------------------------------
+Expected: All 7 names (the subquery finds Muffy)
+
+========================================================================
+STEP 39: 6d) Logical - ALL
+------------------------------------------------------------------------
+SELECT NAME, SALARY FROM CUSTOMERS
+WHERE SALARY > ALL (SELECT SALARY FROM CUSTOMERS WHERE AGE = 25);
+------------------------------------------------------------------------
+Expected: Hardik, Muffy (above both 1500 and 6500)
+
+========================================================================
+STEP 40: 6d) Logical - ANY
+------------------------------------------------------------------------
+SELECT NAME, SALARY FROM CUSTOMERS
+WHERE SALARY > ANY (SELECT SALARY FROM CUSTOMERS WHERE AGE = 25);
+------------------------------------------------------------------------
+Expected: Everyone above 1500 (6 rows, not Khilan)
+
+========================================================================
+STEP 41: 6d) AND operator
+------------------------------------------------------------------------
+SELECT ID, NAME, SALARY
+FROM CUSTOMERS
+WHERE SALARY > 2000 AND AGE < 25;
+------------------------------------------------------------------------
+Expected: Komal (4500), Muffy (10000)
+
+========================================================================
+STEP 42: 6d) OR operator
+------------------------------------------------------------------------
+SELECT ID, NAME, SALARY
+FROM CUSTOMERS
+WHERE SALARY > 2000 OR AGE < 25;
+------------------------------------------------------------------------
+Expected: kaushik, Chaitali, Hardik, Komal, Muffy
+
+========================================================================
+STEP 43: 6e) LIKE '200%' - SALARY starts with 200
+------------------------------------------------------------------------
+SELECT * FROM CUSTOMERS WHERE SALARY LIKE '200%';
+------------------------------------------------------------------------
+Expected: Ramesh, kaushik
+
+========================================================================
+STEP 44: 6e) LIKE '%200%' - 200 in any position
+------------------------------------------------------------------------
+SELECT * FROM CUSTOMERS WHERE SALARY LIKE '%200%';
+------------------------------------------------------------------------
+Expected: Ramesh, kaushik
+
+========================================================================
+STEP 45: 6e) LIKE '_00%' - 00 in the 2nd and 3rd positions
+------------------------------------------------------------------------
+SELECT * FROM CUSTOMERS WHERE SALARY LIKE '_00%';
+------------------------------------------------------------------------
+Expected: Ramesh, kaushik, Muffy
+
+========================================================================
+STEP 46: 6e) LIKE '2_%_%' - starts with 2 and at least 3 characters long
+------------------------------------------------------------------------
+SELECT * FROM CUSTOMERS WHERE SALARY LIKE '2_%_%';
+------------------------------------------------------------------------
+Expected: Ramesh, kaushik
+
+========================================================================
+STEP 47: 6e) LIKE '%2' - ends with 2
+------------------------------------------------------------------------
+SELECT * FROM CUSTOMERS WHERE SALARY LIKE '%2';
+------------------------------------------------------------------------
+Expected: Empty set (salaries end with 0)
+
+========================================================================
+STEP 48: 6e) LIKE '_2%3' - 2 in the 2nd position and ends with 3
+------------------------------------------------------------------------
+SELECT * FROM CUSTOMERS WHERE SALARY LIKE '_2%3';
+------------------------------------------------------------------------
+Expected: Empty set
+
+========================================================================
+STEP 49: 6e) LIKE '2___3' - five characters, starts with 2 and ends with 3
+------------------------------------------------------------------------
+SELECT * FROM CUSTOMERS WHERE SALARY LIKE '2___3';
+------------------------------------------------------------------------
+Expected: Empty set
+
+========================================================================
+STEP 50: 6e) LIKE on a name - starts with K
+------------------------------------------------------------------------
+SELECT * FROM CUSTOMERS WHERE NAME LIKE 'K%';
+------------------------------------------------------------------------
+Expected: Khilan, kaushik, Komal
+
+========================================================================
+STEP 51: 6e) LIKE on a name - ends with i
+------------------------------------------------------------------------
+SELECT * FROM CUSTOMERS WHERE NAME LIKE '%i';
+------------------------------------------------------------------------
+Expected: Chaitali
+
+========================================================================
+STEP 52: 6e) LIKE on a name - second letter is o
+------------------------------------------------------------------------
+SELECT * FROM CUSTOMERS WHERE NAME LIKE '_o%';
+------------------------------------------------------------------------
+Expected: Komal
+
+========================================================================
+STEP 53: 6e) NOT LIKE - names without the letter a
+------------------------------------------------------------------------
+SELECT * FROM CUSTOMERS WHERE NAME NOT LIKE '%a%';
+------------------------------------------------------------------------
+Expected: Muffy
+
+========================================================================
+STEP 54: 6f) Create the EMPLOYEES table (from the manual)
+------------------------------------------------------------------------
+DROP TABLE IF EXISTS employees;
+CREATE TABLE employees (
+    employee_number INT PRIMARY KEY,
+    last_name VARCHAR(30),
+    first_name VARCHAR(30),
+    salary INT,
+    dept_id INT
+);
+------------------------------------------------------------------------
+Expected: Query OK, 0 rows affected
+
+========================================================================
+STEP 55: 6f) Insert 4 employees
+------------------------------------------------------------------------
+INSERT INTO employees VALUES
+    (1001, 'Smith', 'John', 62000, 500),
+    (1002, 'Anderson', 'Jane', 57500, 500),
+    (1003, 'Everest', 'Brad', 71000, 501),
+    (1004, 'Horvath', 'Jack', 42000, 501);
+------------------------------------------------------------------------
+Expected: 4 rows inserted
+
+========================================================================
+STEP 56: 6f) Aggregate functions on CUSTOMERS
+------------------------------------------------------------------------
+SELECT COUNT(*) AS total, SUM(SALARY) AS total_salary, AVG(SALARY) AS average_salary,
+       MAX(SALARY) AS highest, MIN(SALARY) AS lowest
+FROM CUSTOMERS;
+------------------------------------------------------------------------
+Expected: 7 | 35000.00 | 5000.000000 | 10000.00 | 1500.00
+
+========================================================================
+STEP 57: 6f) GROUP BY - total salary per department (manual example)
+------------------------------------------------------------------------
+SELECT dept_id, SUM(salary) AS total_salaries
+FROM employees
+GROUP BY dept_id;
+------------------------------------------------------------------------
+Expected: 500 -> 119500   |   501 -> 113000
+
+========================================================================
+STEP 58: 6f) GROUP BY - COUNT, AVG, MAX, MIN per department
+------------------------------------------------------------------------
+SELECT dept_id, COUNT(*) AS emp_count, AVG(salary) AS avg_salary,
+       MAX(salary) AS highest, MIN(salary) AS lowest
+FROM employees
+GROUP BY dept_id;
+------------------------------------------------------------------------
+Expected: 500: 2, 59750, 62000, 57500   |   501: 2, 56500, 71000, 42000
+
+========================================================================
+STEP 59: 6f) HAVING - departments whose total salary is above 115000
+------------------------------------------------------------------------
+SELECT dept_id, SUM(salary) AS total_salaries
+FROM employees
+GROUP BY dept_id
+HAVING SUM(salary) > 115000;
+------------------------------------------------------------------------
+Expected: Only dept 500 (119500)
+
+========================================================================
+STEP 60: 6f) GROUP BY with HAVING on CUSTOMERS - ages shared by more than 1 customer
+------------------------------------------------------------------------
+SELECT AGE, COUNT(*) AS customers
+FROM CUSTOMERS
+GROUP BY AGE
+HAVING COUNT(*) > 1;
+------------------------------------------------------------------------
+Expected: AGE 25 -> 2 customers
+
+========================================================================
+STEP 61: 6g) Subquery with IN (manual example)
+------------------------------------------------------------------------
+SELECT *
+FROM CUSTOMERS
+WHERE ID IN (SELECT ID FROM CUSTOMERS WHERE SALARY > 4500);
+------------------------------------------------------------------------
+Expected: Chaitali, Hardik, Muffy
+
+========================================================================
+STEP 62: 6g) Subquery with NOT IN
+------------------------------------------------------------------------
+SELECT *
+FROM CUSTOMERS
+WHERE ID NOT IN (SELECT ID FROM CUSTOMERS WHERE SALARY > 4500);
+------------------------------------------------------------------------
+Expected: Ramesh, Khilan, kaushik, Komal
+
+========================================================================
+STEP 63: 6g) Subquery with a comparison - above the average salary
+------------------------------------------------------------------------
+SELECT NAME, SALARY
+FROM CUSTOMERS
+WHERE SALARY > (SELECT AVG(SALARY) FROM CUSTOMERS);
+------------------------------------------------------------------------
+Expected: Chaitali, Hardik, Muffy (average is 5000)
+
+========================================================================
+STEP 64: 6g) Subquery with MAX - highest paid customer
+------------------------------------------------------------------------
+SELECT NAME, SALARY
+FROM CUSTOMERS
+WHERE SALARY = (SELECT MAX(SALARY) FROM CUSTOMERS);
+------------------------------------------------------------------------
+Expected: Muffy (10000)
+
+========================================================================
+STEP 65: 6g) Correlated subquery - customers who share their age with another customer
+------------------------------------------------------------------------
+SELECT NAME, AGE
+FROM CUSTOMERS c
+WHERE EXISTS (SELECT 1 FROM CUSTOMERS WHERE AGE = c.AGE AND ID <> c.ID);
+------------------------------------------------------------------------
+Expected: Khilan, Chaitali (both age 25)
+
+========================================================================
+STEP 66: 6g) Subquery in the FROM clause
+------------------------------------------------------------------------
+SELECT AVG(SALARY) AS avg_of_top_3
+FROM (SELECT SALARY FROM CUSTOMERS ORDER BY SALARY DESC LIMIT 3) AS top3;
+------------------------------------------------------------------------
+Expected: 8333.333333
+
+========================================================================
+STEP 67: 6h) Create the two tables hostel1 and hostel2
+------------------------------------------------------------------------
+DROP TABLE IF EXISTS hostel1;
+DROP TABLE IF EXISTS hostel2;
+CREATE TABLE hostel1 (roll_no INT, name VARCHAR(30));
+CREATE TABLE hostel2 (roll_no INT, name VARCHAR(30));
+------------------------------------------------------------------------
+Expected: Query OK - both tables created
+
+========================================================================
+STEP 68: 6h) Insert data
+------------------------------------------------------------------------
+INSERT INTO hostel1 VALUES (1, 'Farhan'), (2, 'Ali'), (3, 'Sara');
+INSERT INTO hostel2 VALUES (2, 'Ali'), (4, 'John'), (5, 'Meera');
+SELECT * FROM hostel1;
+SELECT * FROM hostel2;
+------------------------------------------------------------------------
+Expected: hostel1: Farhan, Ali, Sara   |   hostel2: Ali, John, Meera
+
+========================================================================
+STEP 69: 6h) UNION - combine both, remove duplicates
+------------------------------------------------------------------------
+SELECT * FROM hostel1
+UNION
+SELECT * FROM hostel2;
+------------------------------------------------------------------------
+Expected: 5 rows (Ali appears once)
+
+========================================================================
+STEP 70: 6h) UNION ALL - combine both, keep duplicates
+------------------------------------------------------------------------
+SELECT * FROM hostel1
+UNION ALL
+SELECT * FROM hostel2;
+------------------------------------------------------------------------
+Expected: 6 rows (Ali appears twice)
+
+========================================================================
+STEP 71: 6h) INTERSECT - rows present in BOTH tables
+------------------------------------------------------------------------
+SELECT * FROM hostel1
+INTERSECT
+SELECT * FROM hostel2;
+------------------------------------------------------------------------
+Expected: Ali
+
+========================================================================
+STEP 72: 6h) MINUS - rows in hostel1 but not in hostel2  (MySQL name: EXCEPT)
+------------------------------------------------------------------------
+SELECT * FROM hostel1
+EXCEPT
+SELECT * FROM hostel2;
+------------------------------------------------------------------------
+Expected: Farhan, Sara
+
+========================================================================
+STEP 73: 6h) Old-version alternative for INTERSECT (works on every MySQL version)
+------------------------------------------------------------------------
+SELECT h1.*
+FROM hostel1 h1
+INNER JOIN hostel2 h2 ON h1.roll_no = h2.roll_no AND h1.name = h2.name;
+------------------------------------------------------------------------
+Expected: Ali
+
+========================================================================
+STEP 74: 6h) Old-version alternative for MINUS (works on every MySQL version)
+------------------------------------------------------------------------
+SELECT *
+FROM hostel1
+WHERE (roll_no, name) NOT IN (SELECT roll_no, name FROM hostel2);
+------------------------------------------------------------------------
+Expected: Farhan, Sara
+
+========================================================================
+STEP 75: 6i) CREATE VIEW - only name and age
+------------------------------------------------------------------------
+CREATE OR REPLACE VIEW customers_view AS
+SELECT NAME, AGE
+FROM CUSTOMERS;
+------------------------------------------------------------------------
+Expected: Query OK - view created
+
+========================================================================
+STEP 76: 6i) Query the view like a normal table
+------------------------------------------------------------------------
+SELECT * FROM customers_view;
+------------------------------------------------------------------------
+Expected: NAME and AGE of all 7 customers
+
+========================================================================
+STEP 77: 6i) CREATE VIEW - customers with salary above 4500
+------------------------------------------------------------------------
+CREATE OR REPLACE VIEW high_salary AS
+SELECT ID, NAME, SALARY
+FROM CUSTOMERS
+WHERE SALARY > 4500;
+------------------------------------------------------------------------
+Expected: Query OK - view created
+
+========================================================================
+STEP 78: 6i) Query the high_salary view
+------------------------------------------------------------------------
+SELECT * FROM high_salary;
+------------------------------------------------------------------------
+Expected: Chaitali, Hardik, Muffy
+
+========================================================================
+STEP 79: 6i) UPDATE through a view (changes the base table)
+------------------------------------------------------------------------
+UPDATE high_salary SET SALARY = SALARY + 500 WHERE ID = 4;
+SELECT ID, NAME, SALARY FROM CUSTOMERS WHERE ID = 4;
+------------------------------------------------------------------------
+Expected: Chaitali salary is now 7000.00
+
+========================================================================
+STEP 80: 6i) Show all views in the database
+------------------------------------------------------------------------
+SHOW FULL TABLES WHERE Table_type = 'VIEW';
+------------------------------------------------------------------------
+Expected: customers_view, high_salary
+
+========================================================================
+STEP 81: 6i) DROP VIEW
+------------------------------------------------------------------------
+DROP VIEW customers_view;
+DROP VIEW high_salary;
+SHOW FULL TABLES WHERE Table_type = 'VIEW';
+------------------------------------------------------------------------
+Expected: Empty set - both views deleted
+
+========================================================================
+STEP 82: 6i) Undo the salary change (so the next parts match)
+------------------------------------------------------------------------
+UPDATE CUSTOMERS SET SALARY = SALARY - 500 WHERE ID = 4;
+------------------------------------------------------------------------
+Expected: Chaitali is back to 6500.00
+
+========================================================================
+STEP 83: 6j) ORDER BY - ascending (default)
+------------------------------------------------------------------------
+SELECT * FROM CUSTOMERS ORDER BY NAME ASC;
+------------------------------------------------------------------------
+Expected: Names A to Z
+
+========================================================================
+STEP 84: 6j) ORDER BY - descending
+------------------------------------------------------------------------
+SELECT * FROM CUSTOMERS ORDER BY SALARY DESC;
+------------------------------------------------------------------------
+Expected: 10000, 8500, 6500, 4500, 2000, 2000, 1500
+
+========================================================================
+STEP 85: 6j) ORDER BY - two columns (age first, then salary high to low)
+------------------------------------------------------------------------
+SELECT * FROM CUSTOMERS ORDER BY AGE ASC, SALARY DESC;
+------------------------------------------------------------------------
+Expected: Age 22, 23, 24, 25 (Chaitali before Khilan), 27, 32
+
+========================================================================
+STEP 86: 6j) ORDER BY with LIMIT - top 3 salaries
+------------------------------------------------------------------------
+SELECT NAME, SALARY FROM CUSTOMERS ORDER BY SALARY DESC LIMIT 3;
+------------------------------------------------------------------------
+Expected: Muffy, Hardik, Chaitali
+
+========================================================================
+STEP 87: 6k) Date and time data types (DATE, DATETIME, TIMESTAMP, YEAR)
+------------------------------------------------------------------------
+DROP TABLE IF EXISTS date_types;
+CREATE TABLE date_types (d DATE, dt DATETIME, ts TIMESTAMP, y YEAR);
+INSERT INTO date_types VALUES ('2017-06-15', '2017-06-15 09:34:21', '2017-06-15 09:34:21', 2017);
+SELECT * FROM date_types;
+------------------------------------------------------------------------
+Expected: 2017-06-15 | 2017-06-15 09:34:21 | 2017-06-15 09:34:21 | 2017
+
+========================================================================
+STEP 88: 6k) DATE() function (manual example)
+------------------------------------------------------------------------
+SELECT DATE('2017-06-15 09:34:21');
+------------------------------------------------------------------------
+Expected: 2017-06-15
+
+========================================================================
+STEP 89: 6k) Create an Orders table
+------------------------------------------------------------------------
+DROP TABLE IF EXISTS Orders;
+CREATE TABLE Orders (
+    OrderID INT PRIMARY KEY,
+    CustomerName VARCHAR(30),
+    OrderDate DATE
+);
+INSERT INTO Orders VALUES
+    (1, 'Ramesh', '2008-11-11'),
+    (2, 'Khilan', '2008-11-09'),
+    (3, 'Hardik', '2008-11-11'),
+    (4, 'Komal', '2009-01-15');
+------------------------------------------------------------------------
+Expected: 4 rows inserted
+
+========================================================================
+STEP 90: 6k) Search by date (manual example)
+------------------------------------------------------------------------
+SELECT * FROM Orders WHERE OrderDate = '2008-11-11';
+------------------------------------------------------------------------
+Expected: Orders 1 and 3
+
+========================================================================
+STEP 91: 6k) Date range with BETWEEN
+------------------------------------------------------------------------
+SELECT * FROM Orders WHERE OrderDate BETWEEN '2008-11-01' AND '2008-12-31';
+------------------------------------------------------------------------
+Expected: Orders 1, 2 and 3
+
+========================================================================
+STEP 92: 6k) Current date and time functions
+------------------------------------------------------------------------
+SELECT NOW(), CURDATE(), CURTIME();
+------------------------------------------------------------------------
+Expected: Today's date and time
+
+========================================================================
+STEP 93: 6k) Extract parts of a date
+------------------------------------------------------------------------
+SELECT OrderID, YEAR(OrderDate) AS yr, MONTH(OrderDate) AS mon, DAY(OrderDate) AS dy FROM Orders;
+------------------------------------------------------------------------
+Expected: Year, month and day for each order
+
+========================================================================
+STEP 94: 6k) Format a date and find the difference
+------------------------------------------------------------------------
+SELECT DATE_FORMAT(OrderDate, '%d-%m-%Y') AS formatted,
+       DATEDIFF('2008-11-11', OrderDate) AS days_before_11_nov
+FROM Orders;
+------------------------------------------------------------------------
+Expected: 11-11-2008 ... and the number of days from 11 Nov 2008
+
